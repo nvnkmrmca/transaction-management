@@ -1,8 +1,8 @@
 "use strict";
 
 const mongoose = require('mongoose');
+const User = require('../model/user');
 const Transaction = require('../model/transaction');
-const util = require("../util/index");
 const _res = require("../util/response");
 
 // create and Save a new record
@@ -23,37 +23,32 @@ exports.create = (req, res) => {
         if(!result || !result._id){
             return _res.cError(res, 'Transaction not created. Some problem occurs.');
         }
-
-
-    //     let query = {
-
-    //     };
-    //     if(req.body.currencyType === 'BITCOIN'){
-    //         bitcoinWalletBalance: 
-    //     }
-    //     // Transfer 
-    // User.findByIdAndUpdate(req.body.sourceUserId, {
-    //     bitcoinWalletId: req.body.bitcoinWalletId,
-    //     bitcoinWalletBalance: req.body.bitcoinWalletBalance,
-    //     ethereumWalletId: req.body.ethereumWalletId,
-    //     ethereumWalletBalance : req.body.ethereumWalletBalance,
-    //     maxAmountAllowed: req.body.maxAmountAllowed
-    // }, {new: true})
-    // .then(result => {
-    //     if(!result || !result._id){
-    //         return _res.cError(res, 'Error updating record with id ' + req.params.id);
-    //     }
-    //     return _res.success(res, result._id);
-    // }).catch(err => {
-    //     if(err.kind === 'ObjectId') {
-    //         return _res.nError(res, 'Record not found with id ' + req.params.id);
-    //     }
-    //     return _res.error(res, 'Internal server error. Error updating record with id ' + req.params.id);
-    // });
-
-
-
-        return _res.success(res, result._id);
+        let transactionId = result._id;
+        // Transfer 
+        let query = { };
+        if(req.body.currencyType === 'BITCOIN'){
+            query['$inc'] = { bitcoinWalletBalance: -parseInt(req.body.currencyAmount) }
+        } else {
+            query['$inc'] = { ethereumWalletBalance: -parseInt(req.body.currencyAmount) }
+        }
+        User.findByIdAndUpdate(req.body.sourceUserId, query, {new: true})
+        .then(result => {
+            if(!result || !result._id){
+                return _res.success(res, transactionId);
+            }
+            query = { };
+            if(req.body.currencyType === 'BITCOIN'){
+                query['$inc'] = { bitcoinWalletBalance: parseInt(req.body.currencyAmount) }
+            } else {
+                query['$inc'] = { ethereumWalletBalance: parseInt(req.body.currencyAmount) }
+            }
+            User.findByIdAndUpdate(req.body.targetUserId, query, {new: true})
+            .then(result => {
+                return _res.success(res, transactionId);
+            }).catch(err => {
+            });
+        }).catch(err => {
+        });
     }).catch(err => {
         return _res.error(res, err.message || 'Some error occurred while creating a record.');
     });
